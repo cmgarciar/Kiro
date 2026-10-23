@@ -1,0 +1,27 @@
+# .NET build artifacts
+bin/
+obj/
+*.dll
+*.exe
+*.pdb
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+
+# IDE
+.vs/
+.vscode/
+*.user
+*.suo
+
+# Kiro internal config (contains credentials)
+.kiro/
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Logs
+*.log
