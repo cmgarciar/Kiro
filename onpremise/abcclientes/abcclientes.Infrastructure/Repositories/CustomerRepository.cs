@@ -8,9 +8,6 @@ using Microsoft.Extensions.Configuration;
 
 namespace abcclientes.Infrastructure.Repositories;
 
-/// <summary>
-/// ADO.NET implementation of the Customer repository using stored procedures.
-/// </summary>
 public class CustomerRepository : ICustomerRepository
 {
     private readonly string _connectionString;
@@ -18,27 +15,27 @@ public class CustomerRepository : ICustomerRepository
     public CustomerRepository(IConfiguration configuration)
     {
         _connectionString = configuration.GetConnectionString("DefaultConnection")
-            ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
+            ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not configured.");
     }
 
     public async Task<int> CreateAsync(string nombre, string? direccion, string? telefono)
     {
         try
         {
-            using var connection = new SqlConnection(_connectionString);
-            using var command = new SqlCommand("sp_CustomerCreate", connection);
-            command.CommandType = CommandType.StoredProcedure;
-            command.Parameters.Add("@Nombre", SqlDbType.NVarChar, 100).Value = nombre;
-            command.Parameters.Add("@Direccion", SqlDbType.NVarChar, 200).Value = (object?)direccion ?? DBNull.Value;
-            command.Parameters.Add("@Telefono", SqlDbType.NVarChar, 20).Value = (object?)telefono ?? DBNull.Value;
-
-            await connection.OpenAsync();
-            var result = await command.ExecuteScalarAsync();
-            return Convert.ToInt32(result);
+            using var conn = new SqlConnection(_connectionString);
+            using var cmd = new SqlCommand("sp_CustomerCreate", conn)
+            {
+                CommandType = CommandType.StoredProcedure
+            };
+            cmd.Parameters.Add("@Nombre", SqlDbType.NVarChar, 100).Value = nombre;
+            cmd.Parameters.Add("@Direccion", SqlDbType.NVarChar, 200).Value = (object?)direccion ?? DBNull.Value;
+            cmd.Parameters.Add("@Telefono", SqlDbType.NVarChar, 20).Value = (object?)telefono ?? DBNull.Value;
+            await conn.OpenAsync();
+            return Convert.ToInt32(await cmd.ExecuteScalarAsync());
         }
         catch (SqlException ex)
         {
-            throw new DatabaseException($"Database error in {nameof(CustomerRepository)}: {ex.Message}", ex);
+            throw new DatabaseException($"Database error in {nameof(CustomerRepository)}.CreateAsync: {ex.Message}", ex);
         }
     }
 
@@ -46,34 +43,25 @@ public class CustomerRepository : ICustomerRepository
     {
         try
         {
-            using var connection = new SqlConnection(_connectionString);
-            using var command = new SqlCommand("sp_CustomerGetAll", connection);
-            command.CommandType = CommandType.StoredProcedure;
-            command.Parameters.Add("@Search", SqlDbType.NVarChar, 100).Value = (object?)search ?? DBNull.Value;
-            command.Parameters.Add("@Page", SqlDbType.Int).Value = page;
-            command.Parameters.Add("@PageSize", SqlDbType.Int).Value = pageSize;
-
-            await connection.OpenAsync();
+            using var conn = new SqlConnection(_connectionString);
+            using var cmd = new SqlCommand("sp_CustomerGetAll", conn)
+            {
+                CommandType = CommandType.StoredProcedure
+            };
+            cmd.Parameters.Add("@Search", SqlDbType.NVarChar, 100).Value = (object?)search ?? DBNull.Value;
+            cmd.Parameters.Add("@Page", SqlDbType.Int).Value = page;
+            cmd.Parameters.Add("@PageSize", SqlDbType.Int).Value = pageSize;
+            await conn.OpenAsync();
 
             var customers = new List<Customer>();
             int totalCount = 0;
 
-            using (var reader = await command.ExecuteReaderAsync())
-            {
-                while (await reader.ReadAsync())
-                {
-                    customers.Add(MapReaderToCustomer(reader));
-                }
+            using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+                customers.Add(Map(reader));
 
-                // The SP returns two result sets: the paged rows and the total count.
-                if (await reader.NextResultAsync())
-                {
-                    if (await reader.ReadAsync())
-                    {
-                        totalCount = reader.GetInt32(reader.GetOrdinal("TotalCount"));
-                    }
-                }
-            }
+            if (await reader.NextResultAsync() && await reader.ReadAsync())
+                totalCount = reader.GetInt32(reader.GetOrdinal("TotalCount"));
 
             return new PagedResult<Customer>
             {
@@ -85,7 +73,7 @@ public class CustomerRepository : ICustomerRepository
         }
         catch (SqlException ex)
         {
-            throw new DatabaseException($"Database error in {nameof(CustomerRepository)}: {ex.Message}", ex);
+            throw new DatabaseException($"Database error in {nameof(CustomerRepository)}.GetAllAsync: {ex.Message}", ex);
         }
     }
 
@@ -93,24 +81,19 @@ public class CustomerRepository : ICustomerRepository
     {
         try
         {
-            using var connection = new SqlConnection(_connectionString);
-            using var command = new SqlCommand("sp_CustomerGetById", connection);
-            command.CommandType = CommandType.StoredProcedure;
-            command.Parameters.Add("@Id", SqlDbType.Int).Value = id;
-
-            await connection.OpenAsync();
-            using var reader = await command.ExecuteReaderAsync();
-
-            if (await reader.ReadAsync())
+            using var conn = new SqlConnection(_connectionString);
+            using var cmd = new SqlCommand("sp_CustomerGetById", conn)
             {
-                return MapReaderToCustomer(reader);
-            }
-
-            return null;
+                CommandType = CommandType.StoredProcedure
+            };
+            cmd.Parameters.Add("@Id", SqlDbType.Int).Value = id;
+            await conn.OpenAsync();
+            using var reader = await cmd.ExecuteReaderAsync();
+            return await reader.ReadAsync() ? Map(reader) : null;
         }
         catch (SqlException ex)
         {
-            throw new DatabaseException($"Database error in {nameof(CustomerRepository)}: {ex.Message}", ex);
+            throw new DatabaseException($"Database error in {nameof(CustomerRepository)}.GetByIdAsync: {ex.Message}", ex);
         }
     }
 
@@ -118,21 +101,21 @@ public class CustomerRepository : ICustomerRepository
     {
         try
         {
-            using var connection = new SqlConnection(_connectionString);
-            using var command = new SqlCommand("sp_CustomerUpdate", connection);
-            command.CommandType = CommandType.StoredProcedure;
-            command.Parameters.Add("@Id", SqlDbType.Int).Value = id;
-            command.Parameters.Add("@Nombre", SqlDbType.NVarChar, 100).Value = nombre;
-            command.Parameters.Add("@Direccion", SqlDbType.NVarChar, 200).Value = (object?)direccion ?? DBNull.Value;
-            command.Parameters.Add("@Telefono", SqlDbType.NVarChar, 20).Value = (object?)telefono ?? DBNull.Value;
-
-            await connection.OpenAsync();
-            var result = await command.ExecuteScalarAsync();
-            return Convert.ToInt32(result) > 0;
+            using var conn = new SqlConnection(_connectionString);
+            using var cmd = new SqlCommand("sp_CustomerUpdate", conn)
+            {
+                CommandType = CommandType.StoredProcedure
+            };
+            cmd.Parameters.Add("@Id", SqlDbType.Int).Value = id;
+            cmd.Parameters.Add("@Nombre", SqlDbType.NVarChar, 100).Value = nombre;
+            cmd.Parameters.Add("@Direccion", SqlDbType.NVarChar, 200).Value = (object?)direccion ?? DBNull.Value;
+            cmd.Parameters.Add("@Telefono", SqlDbType.NVarChar, 20).Value = (object?)telefono ?? DBNull.Value;
+            await conn.OpenAsync();
+            return Convert.ToInt32(await cmd.ExecuteScalarAsync()) > 0;
         }
         catch (SqlException ex)
         {
-            throw new DatabaseException($"Database error in {nameof(CustomerRepository)}: {ex.Message}", ex);
+            throw new DatabaseException($"Database error in {nameof(CustomerRepository)}.UpdateAsync: {ex.Message}", ex);
         }
     }
 
@@ -140,32 +123,29 @@ public class CustomerRepository : ICustomerRepository
     {
         try
         {
-            using var connection = new SqlConnection(_connectionString);
-            using var command = new SqlCommand("sp_CustomerDelete", connection);
-            command.CommandType = CommandType.StoredProcedure;
-            command.Parameters.Add("@Id", SqlDbType.Int).Value = id;
-
-            await connection.OpenAsync();
-            var result = await command.ExecuteScalarAsync();
-            return Convert.ToInt32(result) > 0;
+            using var conn = new SqlConnection(_connectionString);
+            using var cmd = new SqlCommand("sp_CustomerDelete", conn)
+            {
+                CommandType = CommandType.StoredProcedure
+            };
+            cmd.Parameters.Add("@Id", SqlDbType.Int).Value = id;
+            await conn.OpenAsync();
+            return Convert.ToInt32(await cmd.ExecuteScalarAsync()) > 0;
         }
         catch (SqlException ex)
         {
-            throw new DatabaseException($"Database error in {nameof(CustomerRepository)}: {ex.Message}", ex);
+            throw new DatabaseException($"Database error in {nameof(CustomerRepository)}.DeleteAsync: {ex.Message}", ex);
         }
     }
 
-    private static Customer MapReaderToCustomer(SqlDataReader reader)
+    private static Customer Map(SqlDataReader r) => new()
     {
-        return new Customer
-        {
-            Id = reader.GetInt32(reader.GetOrdinal("Id")),
-            Nombre = reader.GetString(reader.GetOrdinal("Nombre")),
-            Direccion = reader.IsDBNull(reader.GetOrdinal("Direccion")) ? null : reader.GetString(reader.GetOrdinal("Direccion")),
-            Telefono = reader.IsDBNull(reader.GetOrdinal("Telefono")) ? null : reader.GetString(reader.GetOrdinal("Telefono")),
-            Activo = reader.GetBoolean(reader.GetOrdinal("Activo")),
-            FechaCreacion = reader.GetDateTime(reader.GetOrdinal("FechaCreacion")),
-            FechaModificacion = reader.IsDBNull(reader.GetOrdinal("FechaModificacion")) ? null : reader.GetDateTime(reader.GetOrdinal("FechaModificacion"))
-        };
-    }
+        Id = r.GetInt32(r.GetOrdinal("Id")),
+        Nombre = r.GetString(r.GetOrdinal("Nombre")),
+        Direccion = r.IsDBNull(r.GetOrdinal("Direccion")) ? null : r.GetString(r.GetOrdinal("Direccion")),
+        Telefono = r.IsDBNull(r.GetOrdinal("Telefono")) ? null : r.GetString(r.GetOrdinal("Telefono")),
+        Activo = r.GetBoolean(r.GetOrdinal("Activo")),
+        FechaCreacion = r.GetDateTime(r.GetOrdinal("FechaCreacion")),
+        FechaModificacion = r.IsDBNull(r.GetOrdinal("FechaModificacion")) ? null : r.GetDateTime(r.GetOrdinal("FechaModificacion"))
+    };
 }

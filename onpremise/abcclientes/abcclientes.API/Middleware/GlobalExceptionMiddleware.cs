@@ -1,12 +1,8 @@
 using abcclientes.Domain.Exceptions;
-using System.Net;
 using System.Text.Json;
 
 namespace abcclientes.API.Middleware;
 
-/// <summary>
-/// Global exception handler middleware that maps domain exceptions to HTTP responses.
-/// </summary>
 public class GlobalExceptionMiddleware
 {
     private readonly RequestDelegate _next;
@@ -26,31 +22,30 @@ public class GlobalExceptionMiddleware
         }
         catch (NotFoundException ex)
         {
-            _logger.LogWarning(ex, "NotFoundException: {Message}", ex.Message);
-            await WriteResponse(context, HttpStatusCode.NotFound, ex.Message);
+            _logger.LogWarning(ex, "Not found: {Message}", ex.Message);
+            await WriteResponse(context, 404, ex.Message);
         }
         catch (ValidationException ex)
         {
-            _logger.LogWarning(ex, "ValidationException: {Message}", ex.Message);
-            await WriteResponse(context, HttpStatusCode.BadRequest, ex.Message);
+            _logger.LogWarning(ex, "Validation error: {Message}", ex.Message);
+            await WriteResponse(context, 400, ex.Message);
         }
         catch (DatabaseException ex)
         {
-            _logger.LogError(ex, "DatabaseException: {Message}", ex.Message);
-            await WriteResponse(context, HttpStatusCode.InternalServerError, "Internal server error");
+            _logger.LogError(ex, "Database error");
+            await WriteResponse(context, 500, "Internal server error");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unhandled exception: {Message}", ex.Message);
-            await WriteResponse(context, HttpStatusCode.InternalServerError, "Internal server error");
+            _logger.LogError(ex, "Unexpected error");
+            await WriteResponse(context, 500, "Internal server error");
         }
     }
 
-    private static async Task WriteResponse(HttpContext context, HttpStatusCode statusCode, string message)
+    private static async Task WriteResponse(HttpContext context, int statusCode, string message)
     {
+        context.Response.StatusCode = statusCode;
         context.Response.ContentType = "application/json";
-        context.Response.StatusCode = (int)statusCode;
-
         var payload = JsonSerializer.Serialize(new { message });
         await context.Response.WriteAsync(payload);
     }

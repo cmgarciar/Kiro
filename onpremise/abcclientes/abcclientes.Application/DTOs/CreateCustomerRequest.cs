@@ -2,19 +2,16 @@ using System.ComponentModel.DataAnnotations;
 
 namespace abcclientes.Application.DTOs;
 
-/// <summary>
-/// Request DTO for creating a new customer.
-/// </summary>
 public class CreateCustomerRequest
 {
-    [Required(ErrorMessage = "El campo Nombre es obligatorio.")]
-    [MaxLength(100, ErrorMessage = "El campo Nombre no puede superar 100 caracteres.")]
+    [Required]
+    [MaxLength(100)]
     public string Nombre { get; set; } = string.Empty;
 
-    [MaxLength(200, ErrorMessage = "El campo Direccion no puede superar 200 caracteres.")]
+    [MaxLength(200)]
     public string? Direccion { get; set; }
 
-    [MaxLength(20, ErrorMessage = "El campo Telefono no puede superar 20 caracteres.")]
-    [RegularExpression(@"^\d*$", ErrorMessage = "El campo Telefono solo debe contener digitos.")]
+    [MaxLength(20)]
+    [RegularExpression(@"^\d*$")]
     public string? Telefono { get; set; }
 }

@@ -3,17 +3,14 @@ using System.Net.Http.Json;
 
 namespace abcclientes.WinForms.Services;
 
-/// <summary>
-/// HTTP service that communicates with the Customers API endpoints.
-/// </summary>
 public class CustomerApiService
 {
-    private readonly HttpClient _httpClient;
-    private const string BaseUrl = "http://localhost:5163/api/v1/customers";
+    private readonly HttpClient _http;
+    private const string Base = "http://localhost:5163/api/v1/customers";
 
-    public CustomerApiService(HttpClient httpClient)
+    public CustomerApiService(HttpClient http)
     {
-        _httpClient = httpClient;
+        _http = http;
     }
 
     public async Task<CustomerPagedResponse> GetAllAsync(string? search, int page, int pageSize)
@@ -22,43 +19,28 @@ public class CustomerApiService
         if (!string.IsNullOrWhiteSpace(search))
             query += $"&search={Uri.EscapeDataString(search)}";
 
-        var response = await _httpClient.GetAsync(BaseUrl + query);
+        var response = await _http.GetAsync(Base + query);
         response.EnsureSuccessStatusCode();
-
-        return await response.Content.ReadFromJsonAsync<CustomerPagedResponse>()
-            ?? throw new InvalidOperationException("Failed to deserialize customer list.");
-    }
-
-    public async Task<CustomerResponse> GetByIdAsync(int id)
-    {
-        var response = await _httpClient.GetAsync($"{BaseUrl}/{id}");
-        response.EnsureSuccessStatusCode();
-
-        return await response.Content.ReadFromJsonAsync<CustomerResponse>()
-            ?? throw new InvalidOperationException("Failed to deserialize customer.");
+        return await response.Content.ReadFromJsonAsync<CustomerPagedResponse>() ?? new();
     }
 
     public async Task<CustomerResponse> CreateAsync(CreateCustomerRequest request)
     {
-        var response = await _httpClient.PostAsJsonAsync(BaseUrl, request);
+        var response = await _http.PostAsJsonAsync(Base, request);
         response.EnsureSuccessStatusCode();
-
-        return await response.Content.ReadFromJsonAsync<CustomerResponse>()
-            ?? throw new InvalidOperationException("Failed to deserialize created customer.");
+        return await response.Content.ReadFromJsonAsync<CustomerResponse>() ?? new();
     }
 
     public async Task<CustomerResponse> UpdateAsync(int id, UpdateCustomerRequest request)
     {
-        var response = await _httpClient.PutAsJsonAsync($"{BaseUrl}/{id}", request);
+        var response = await _http.PutAsJsonAsync($"{Base}/{id}", request);
         response.EnsureSuccessStatusCode();
-
-        return await response.Content.ReadFromJsonAsync<CustomerResponse>()
-            ?? throw new InvalidOperationException("Failed to deserialize updated customer.");
+        return await response.Content.ReadFromJsonAsync<CustomerResponse>() ?? new();
     }
 
     public async Task DeleteAsync(int id)
     {
-        var response = await _httpClient.DeleteAsync($"{BaseUrl}/{id}");
+        var response = await _http.DeleteAsync($"{Base}/{id}");
         response.EnsureSuccessStatusCode();
     }
 }

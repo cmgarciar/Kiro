@@ -6,9 +6,6 @@ using abcclientes.Domain.Interfaces;
 
 namespace abcclientes.Application.Services;
 
-/// <summary>
-/// Application service that orchestrates customer use cases and enforces business validations.
-/// </summary>
 public class CustomerService : ICustomerService
 {
     private readonly ICustomerRepository _repository;
@@ -24,21 +21,20 @@ public class CustomerService : ICustomerService
         ValidateDireccion(request.Direccion);
         ValidateTelefono(request.Telefono);
 
-        var id = await _repository.CreateAsync(request.Nombre.Trim(), request.Direccion?.Trim(), request.Telefono?.Trim());
+        var id = await _repository.CreateAsync(
+            request.Nombre.Trim(),
+            request.Direccion?.Trim(),
+            request.Telefono?.Trim());
 
         var customer = await _repository.GetByIdAsync(id)
-            ?? throw new DatabaseException("Failed to retrieve the newly created customer.");
-
+            ?? throw new DatabaseException("Failed to retrieve newly created customer.");
         return MapToResponse(customer);
     }
 
     public async Task<CustomerPagedResponse> GetAllAsync(string? search, int page, int pageSize)
     {
-        if (page < 1)
-            page = 1;
-
-        if (pageSize < 1)
-            pageSize = 10;
+        if (page < 1) page = 1;
+        if (pageSize < 1) pageSize = 10;
 
         var result = await _repository.GetAllAsync(search?.Trim(), page, pageSize);
 
@@ -56,7 +52,6 @@ public class CustomerService : ICustomerService
     {
         var customer = await _repository.GetByIdAsync(id)
             ?? throw new NotFoundException($"Customer with Id {id} was not found.");
-
         return MapToResponse(customer);
     }
 
@@ -66,21 +61,23 @@ public class CustomerService : ICustomerService
         ValidateDireccion(request.Direccion);
         ValidateTelefono(request.Telefono);
 
-        var updated = await _repository.UpdateAsync(id, request.Nombre.Trim(), request.Direccion?.Trim(), request.Telefono?.Trim());
+        var updated = await _repository.UpdateAsync(
+            id,
+            request.Nombre.Trim(),
+            request.Direccion?.Trim(),
+            request.Telefono?.Trim());
 
         if (!updated)
             throw new NotFoundException($"Customer with Id {id} was not found.");
 
         var customer = await _repository.GetByIdAsync(id)
-            ?? throw new DatabaseException("Failed to retrieve the updated customer.");
-
+            ?? throw new DatabaseException("Failed to retrieve updated customer.");
         return MapToResponse(customer);
     }
 
     public async Task DeleteAsync(int id)
     {
         var deleted = await _repository.DeleteAsync(id);
-
         if (!deleted)
             throw new NotFoundException($"Customer with Id {id} was not found.");
     }
@@ -89,40 +86,33 @@ public class CustomerService : ICustomerService
     {
         if (string.IsNullOrWhiteSpace(nombre))
             throw new ValidationException("El campo Nombre es obligatorio.");
-
         if (nombre.Length > 100)
             throw new ValidationException("El campo Nombre no puede superar 100 caracteres.");
     }
 
     private static void ValidateDireccion(string? direccion)
     {
-        if (direccion is not null && direccion.Length > 200)
-            throw new ValidationException("El campo Direccion no puede superar 200 caracteres.");
+        if (direccion != null && direccion.Length > 200)
+            throw new ValidationException("Direccion no puede superar 200 caracteres.");
     }
 
     private static void ValidateTelefono(string? telefono)
     {
-        if (string.IsNullOrEmpty(telefono))
-            return;
-
+        if (string.IsNullOrEmpty(telefono)) return;
         if (telefono.Length > 20)
-            throw new ValidationException("El campo Telefono no puede superar 20 caracteres.");
-
+            throw new ValidationException("Telefono no puede superar 20 caracteres.");
         if (!telefono.All(char.IsDigit))
-            throw new ValidationException("El campo Telefono solo debe contener digitos.");
+            throw new ValidationException("Telefono solo debe contener digitos.");
     }
 
-    private static CustomerResponse MapToResponse(Customer customer)
+    private static CustomerResponse MapToResponse(Customer c) => new()
     {
-        return new CustomerResponse
-        {
-            Id = customer.Id,
-            Nombre = customer.Nombre,
-            Direccion = customer.Direccion,
-            Telefono = customer.Telefono,
-            Activo = customer.Activo,
-            FechaCreacion = customer.FechaCreacion,
-            FechaModificacion = customer.FechaModificacion
-        };
-    }
+        Id = c.Id,
+        Nombre = c.Nombre,
+        Direccion = c.Direccion,
+        Telefono = c.Telefono,
+        Activo = c.Activo,
+        FechaCreacion = c.FechaCreacion,
+        FechaModificacion = c.FechaModificacion
+    };
 }

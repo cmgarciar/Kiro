@@ -15,8 +15,7 @@ internal static class Program
         services.AddHttpClient<CustomerApiService>();
         services.AddSingleton<CustomerForm>();
 
-        var serviceProvider = services.BuildServiceProvider();
-
-        System.Windows.Forms.Application.Run(serviceProvider.GetRequiredService<CustomerForm>());
+        var provider = services.BuildServiceProvider();
+        System.Windows.Forms.Application.Run(provider.GetRequiredService<CustomerForm>());
     }
 }

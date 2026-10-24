@@ -1,4 +1,4 @@
-@abcclientes.API_HostAddress = http://localhost:5163
+@abcclientes.API_HostAddress = http://localhost:5290
 
 GET {{abcclientes.API_HostAddress}}/weatherforecast/
 Accept: application/json

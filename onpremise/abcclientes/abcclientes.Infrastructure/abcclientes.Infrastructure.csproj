@@ -2,7 +2,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\abcclientes.Domain\abcclientes.Domain.csproj" />
-    <ProjectReference Include="..\abcclientes.Application\abcclientes.Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>

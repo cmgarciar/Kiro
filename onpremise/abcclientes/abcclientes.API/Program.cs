@@ -6,37 +6,27 @@ using abcclientes.Infrastructure.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Register connection string in configuration
-builder.Configuration["ConnectionStrings:DefaultConnection"] =
-    builder.Configuration.GetConnectionString("DefaultConnection");
-
-// Application services
+// Register application services and repositories
 builder.Services.AddScoped<ICustomerService, CustomerService>();
-
-// Infrastructure repositories
 builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
 
+// MVC / API services
 builder.Services.AddControllers();
-
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// CORS for WinForms client
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("WinFormsPolicy", policy =>
-    {
-        policy.SetIsOriginAllowed(origin => origin.StartsWith("http://localhost", StringComparison.OrdinalIgnoreCase))
-              .AllowAnyHeader()
-              .AllowAnyMethod();
-    });
-});
+// CORS for WinForms (localhost)
+builder.Services.AddCors(o => o.AddPolicy("WinFormsPolicy", p =>
+    p.SetIsOriginAllowed(origin => origin.StartsWith("http://localhost"))
+     .AllowAnyHeader()
+     .AllowAnyMethod()));
 
 var app = builder.Build();
 
-// Global exception handler
+// Global exception handling middleware
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
+// Swagger UI in development
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -44,9 +34,6 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("WinFormsPolicy");
-
 app.UseAuthorization();
-
 app.MapControllers();
-
 app.Run();
