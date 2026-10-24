@@ -11,6 +11,10 @@ build/
 cdk.out/
 .cdk.staging/
 
+# El repo raiz ignora 'bin/'; aqui reincluimos el entrypoint del CDK.
+!packages/infrastructure/bin/
+!packages/infrastructure/bin/app.ts
+
 # Environment
 .env
 .env.local
