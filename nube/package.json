@@ -1,0 +1,18 @@
+{
+  "name": "clientes-aws",
+  "version": "1.0.0",
+  "private": true,
+  "description": "HU1 - Modulo Clientes - Full stack AWS (CDK + Lambda + React)",
+  "workspaces": [
+    "packages/backend",
+    "packages/frontend",
+    "packages/infrastructure"
+  ],
+  "scripts": {
+    "build:backend": "npm run build --workspace packages/backend",
+    "build:frontend": "npm run build --workspace packages/frontend",
+    "typecheck": "npm run typecheck --workspace packages/backend && npm run typecheck --workspace packages/frontend",
+    "synth": "npm run synth --workspace packages/infrastructure",
+    "deploy": "npm run deploy --workspace packages/infrastructure"
+  }
+}

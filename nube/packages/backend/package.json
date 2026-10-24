@@ -1,0 +1,21 @@
+{
+  "name": "@clientes/backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.651.0",
+    "@aws-sdk/lib-dynamodb": "^3.651.0",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.145",
+    "@types/node": "^20.14.0",
+    "@types/uuid": "^9.0.8",
+    "typescript": "^5.5.4"
+  }
+}
