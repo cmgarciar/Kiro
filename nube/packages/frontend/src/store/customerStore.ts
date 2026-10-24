@@ -13,30 +13,38 @@ interface CustomerStore {
   search: string;
   isLoading: boolean;
   error: string | null;
-  // Stack of tokens to support back/forward pagination.
-  tokenStack: Array<string | null>;
-  nextToken: string | null;
-  pageIndex: number;
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
 
   setSearch: (value: string) => void;
   fetchFirstPage: () => Promise<void>;
+  goToPage: (page: number) => Promise<void>;
   nextPage: () => Promise<void>;
   prevPage: () => Promise<void>;
   createCustomer: (data: CreateCustomerRequest) => Promise<void>;
-  updateCustomer: (id: string, data: UpdateCustomerRequest) => Promise<void>;
-  deleteCustomer: (id: string) => Promise<void>;
+  updateCustomer: (id: number, data: UpdateCustomerRequest) => Promise<void>;
+  deleteCustomer: (id: number) => Promise<void>;
 }
 
 export const useCustomerStore = create<CustomerStore>((set, get) => {
-  const load = async (token: string | null): Promise<void> => {
+  const load = async (page: number): Promise<void> => {
     set({ isLoading: true, error: null });
     try {
       const result = await customerService.list({
-        limit: PAGE_SIZE,
-        nextToken: token,
+        page,
+        pageSize: PAGE_SIZE,
         search: get().search,
       });
-      set({ customers: result.items, nextToken: result.nextToken, isLoading: false });
+      set({
+        customers: result.items,
+        page: result.page,
+        pageSize: result.pageSize,
+        total: result.total,
+        totalPages: result.totalPages,
+        isLoading: false,
+      });
     } catch (err) {
       set({ isLoading: false, error: err instanceof Error ? err.message : 'Error desconocido' });
     }
@@ -47,46 +55,42 @@ export const useCustomerStore = create<CustomerStore>((set, get) => {
     search: '',
     isLoading: false,
     error: null,
-    tokenStack: [null],
-    nextToken: null,
-    pageIndex: 0,
+    page: 1,
+    pageSize: PAGE_SIZE,
+    total: 0,
+    totalPages: 1,
 
     setSearch: (value) => set({ search: value }),
 
-    fetchFirstPage: async () => {
-      set({ tokenStack: [null], pageIndex: 0 });
-      await load(null);
-    },
+    fetchFirstPage: () => load(1),
+
+    goToPage: (page) => load(page),
 
     nextPage: async () => {
-      const { nextToken, tokenStack, pageIndex } = get();
-      if (!nextToken) return;
-      set({ tokenStack: [...tokenStack, nextToken], pageIndex: pageIndex + 1 });
-      await load(nextToken);
+      const { page, totalPages } = get();
+      if (page >= totalPages) return;
+      await load(page + 1);
     },
 
     prevPage: async () => {
-      const { tokenStack, pageIndex } = get();
-      if (pageIndex === 0) return;
-      const newStack = tokenStack.slice(0, -1);
-      const token = newStack[newStack.length - 1];
-      set({ tokenStack: newStack, pageIndex: pageIndex - 1 });
-      await load(token);
+      const { page } = get();
+      if (page <= 1) return;
+      await load(page - 1);
     },
 
     createCustomer: async (data) => {
       await customerService.create(data);
-      await get().fetchFirstPage();
+      await load(1);
     },
 
     updateCustomer: async (id, data) => {
       await customerService.update(id, data);
-      await load(get().tokenStack[get().pageIndex]);
+      await load(get().page);
     },
 
     deleteCustomer: async (id) => {
       await customerService.remove(id);
-      await get().fetchFirstPage();
+      await load(get().page);
     },
   };
 });

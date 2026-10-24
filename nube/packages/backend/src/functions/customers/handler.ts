@@ -9,13 +9,27 @@ import {
 
 const service = new CustomerService();
 
-const DEFAULT_LIMIT = 10;
-const MAX_LIMIT = 100;
+const DEFAULT_PAGE_SIZE = 10;
+const MAX_PAGE_SIZE = 100;
 
-const parseLimit = (raw: string | undefined): number => {
+const parsePage = (raw: string | undefined): number => {
   const parsed = Number(raw);
-  if (!Number.isFinite(parsed) || parsed <= 0) return DEFAULT_LIMIT;
-  return Math.min(Math.floor(parsed), MAX_LIMIT);
+  if (!Number.isFinite(parsed) || parsed < 1) return 1;
+  return Math.floor(parsed);
+};
+
+const parsePageSize = (raw: string | undefined): number => {
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) return DEFAULT_PAGE_SIZE;
+  return Math.min(Math.floor(parsed), MAX_PAGE_SIZE);
+};
+
+const parseId = (raw: string | undefined): number => {
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    throw new ValidationException('El Id del cliente no es valido.');
+  }
+  return parsed;
 };
 
 const parseBody = <T>(body: string | null): T => {
@@ -32,41 +46,39 @@ export const handler = async (
 ): Promise<APIGatewayProxyResult> => {
   try {
     const method = event.httpMethod;
-    const id = event.pathParameters?.id;
+    const rawId = event.pathParameters?.id;
     const qs = event.queryStringParameters ?? {};
 
     // POST /customers -> create (CA1)
-    if (method === 'POST' && !id) {
+    if (method === 'POST' && !rawId) {
       const result = await service.create(parseBody(event.body));
       return successResponse(201, result);
     }
 
-    // GET /customers -> list active paginated (CA9) or search (CA6)
-    if (method === 'GET' && !id) {
-      const limit = parseLimit(qs.limit ?? undefined);
-      const token = qs.nextToken ?? undefined;
-      const query = qs.search ?? qs.q;
-      const result = query
-        ? await service.search(query, limit, token)
-        : await service.list(limit, token);
+    // GET /customers -> list active paginated (CA9) / search (CA6)
+    if (method === 'GET' && !rawId) {
+      const page = parsePage(qs.page ?? undefined);
+      const pageSize = parsePageSize(qs.pageSize ?? qs.limit ?? undefined);
+      const search = qs.search ?? qs.q ?? null;
+      const result = await service.list(search, page, pageSize);
       return successResponse(200, result);
     }
 
     // GET /customers/{id} -> get one
-    if (method === 'GET' && id) {
-      const result = await service.getById(id);
+    if (method === 'GET' && rawId) {
+      const result = await service.getById(parseId(rawId));
       return successResponse(200, result);
     }
 
     // PUT /customers/{id} -> update (CA7)
-    if (method === 'PUT' && id) {
-      const result = await service.update(id, parseBody(event.body));
+    if (method === 'PUT' && rawId) {
+      const result = await service.update(parseId(rawId), parseBody(event.body));
       return successResponse(200, result);
     }
 
     // DELETE /customers/{id} -> soft delete (CA8)
-    if (method === 'DELETE' && id) {
-      await service.softDelete(id);
+    if (method === 'DELETE' && rawId) {
+      await service.softDelete(parseId(rawId));
       return successResponse(204, {});
     }
 

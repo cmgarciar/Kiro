@@ -1,155 +1,139 @@
-# HU1 - Módulo Clientes (AWS Full-Stack)
+# HU1 - Módulo Clientes (AWS + SQL Server on-premise)
 
-CRUD de clientes desplegado en AWS con el ecosistema JavaScript/TypeScript:
+CRUD de clientes con **arquitectura híbrida**: el cómputo corre en AWS (Lambda + API Gateway) y la **base de datos es SQL Server on-premise** (base `Kiro`). El frontend es una SPA React servida desde S3 + CloudFront.
 
-- **Infraestructura**: AWS CDK v2 (TypeScript) — DynamoDB, Lambda, API Gateway REST, S3 + CloudFront.
-- **Backend**: Node.js 22 + TypeScript sobre AWS Lambda.
+- **Infraestructura**: AWS CDK v2 (TypeScript) — Lambda, API Gateway REST, Secrets Manager, S3 + CloudFront.
+- **Backend**: Node.js 22 + TypeScript sobre AWS Lambda, acceso a datos con `mssql` vía stored procedures.
+- **Base de datos**: SQL Server (tabla `dbo.Clientes` + 5 stored procedures).
 - **Frontend**: React 18 + TypeScript + Vite + Zustand.
 
 ## Estructura del monorepo
 
 ```
 nube/
+├── database/
+│   └── 01_Clientes.sql       # tabla + stored procedures (SQL Server)
 ├── packages/
-│   ├── backend/          # Lambda (handler + service + repository + validaciones)
-│   ├── frontend/         # SPA React (listado, búsqueda, alta/edición/borrado)
-│   └── infrastructure/   # AWS CDK (StorageStack, ApiStack, FrontendStack)
-├── package.json          # npm workspaces
+│   ├── backend/              # Lambda (handler + service + repository + pool mssql)
+│   ├── frontend/             # SPA React (listado, búsqueda, alta/edición/borrado)
+│   └── infrastructure/       # AWS CDK (ApiStack, FrontendStack)
+├── package.json              # npm workspaces
 └── tsconfig.base.json
 ```
 
-## Modelo de datos (DynamoDB single-table design)
+## Modelo de datos (SQL Server — tabla `dbo.Clientes`)
 
-Tabla `ClientesTable`:
+| Columna             | Tipo           | Notas                                             | CA        |
+|---------------------|----------------|---------------------------------------------------|-----------|
+| `Id`                | INT IDENTITY   | PK, autogenerado, no editable                     | CA1, CA2  |
+| `Nombre`            | NVARCHAR(100)  | obligatorio                                       | CA3       |
+| `Direccion`         | NVARCHAR(200)  | opcional                                          | CA4       |
+| `Telefono`          | NVARCHAR(20)   | opcional, solo dígitos (CHECK constraint)         | CA5       |
+| `Activo`            | BIT            | default 1, soft delete lo pone en 0               | CA8       |
+| `FechaCreacion`     | DATETIME2      | default GETDATE()                                 | CA10      |
+| `FechaModificacion` | DATETIME2      | se actualiza en cada UPDATE/soft delete           | CA10      |
 
-| Atributo    | Uso                                                     |
-|-------------|---------------------------------------------------------|
-| `PK`        | `CUSTOMER#<id>`                                          |
-| `SK`        | `METADATA`                                               |
-| `GSI1PK`    | `CUSTOMER` (activos) / `CUSTOMER#INACTIVE` (soft delete) |
-| `GSI1SK`    | `<createdAt>#<id>` (orden por fecha de creación)         |
-| `id`        | UUID autogenerado, no editable (CA1, CA2)                |
-| `name`      | string ≤ 100, obligatorio (CA3)                          |
-| `address`   | string ≤ 200, opcional (CA4)                             |
-| `phone`     | string ≤ 20, solo dígitos, opcional (CA5)                |
-| `nameLower` | copia en minúsculas para búsqueda case-insensitive (CA6) |
-| `isActive`  | `true` por defecto; soft delete lo pone en `false` (CA8) |
-| `createdAt` | ISO 8601, se asigna al crear (CA10)                      |
-| `updatedAt` | ISO 8601, se actualiza en cada update/delete (CA10)      |
+Índice `IX_Clientes_Activo_Nombre` para acelerar listado/búsqueda de activos.
 
-El índice `GSI1` solo contiene clientes activos en la partición `CUSTOMER`, por lo que listar (CA9) y buscar (CA6) operan únicamente sobre activos. La paginación usa `nextToken` (LastEvaluatedKey codificado en base64).
+### Stored procedures
+
+| SP                             | Propósito                                             | CA        |
+|--------------------------------|-------------------------------------------------------|-----------|
+| `usp_Clientes_Crear`           | Inserta y devuelve el cliente con su Id               | CA1, CA10 |
+| `usp_Clientes_ObtenerPorId`    | Obtiene un cliente activo                              | -         |
+| `usp_Clientes_Listar`          | Lista activos paginado; filtra por Nombre o Teléfono  | CA6, CA9  |
+| `usp_Clientes_Actualizar`      | Edita Nombre/Dirección/Teléfono + FechaModificacion   | CA7, CA10 |
+| `usp_Clientes_Eliminar`        | Soft delete (Activo=0)                                | CA8, CA10 |
+
+El SP de listado devuelve dos recordsets: `[0]` el total de registros y `[1]` la página, que el backend empaqueta en `{ items, page, pageSize, total, totalPages }`.
 
 ## API REST
 
 Base: `https://<api-id>.execute-api.<region>.amazonaws.com/prod`
 
-| Método | Ruta               | Descripción                                   | CA        |
-|--------|--------------------|-----------------------------------------------|-----------|
-| POST   | `/customers`       | Crear cliente                                 | CA1       |
-| GET    | `/customers`       | Listar activos paginado (`?limit&nextToken`)  | CA9       |
-| GET    | `/customers`       | Buscar (`?search=` por nombre o teléfono)     | CA6       |
-| GET    | `/customers/{id}`  | Obtener un cliente activo                      | -         |
-| PUT    | `/customers/{id}`  | Actualizar nombre/dirección/teléfono           | CA7, CA10 |
-| DELETE | `/customers/{id}`  | Soft delete                                    | CA8, CA10 |
+| Método | Ruta               | Descripción                                      | CA        |
+|--------|--------------------|--------------------------------------------------|-----------|
+| POST   | `/customers`       | Crear cliente                                    | CA1       |
+| GET    | `/customers`       | Listar activos paginado (`?page&pageSize`)       | CA9       |
+| GET    | `/customers`       | Buscar (`?search=` por nombre o teléfono)        | CA6       |
+| GET    | `/customers/{id}`  | Obtener un cliente activo                         | -         |
+| PUT    | `/customers/{id}`  | Actualizar nombre/dirección/teléfono              | CA7, CA10 |
+| DELETE | `/customers/{id}`  | Soft delete                                       | CA8, CA10 |
 
 Respuesta de listado/búsqueda:
 
 ```json
-{ "items": [ { "id": "...", "name": "...", "address": null, "phone": null, "isActive": true, "createdAt": "...", "updatedAt": null } ], "nextToken": null }
+{ "items": [ { "id": 1, "name": "...", "address": null, "phone": null, "isActive": true, "createdAt": "...", "updatedAt": null } ], "page": 1, "pageSize": 10, "total": 2, "totalPages": 1 }
 ```
 
-## Mapa de criterios de aceptación
+## Conexión a SQL Server
 
-- **CA1** `POST /customers` crea con `id`, `name`, `address`, `phone`.
-- **CA2** `id` = UUID generado en el service; nunca se acepta ni modifica desde el cliente.
-- **CA3** `name` obligatorio, máx. 100 (validación backend y frontend).
-- **CA4** `address` opcional, máx. 200.
-- **CA5** `phone` opcional, solo dígitos (`/^[0-9]+$/`), máx. 20.
-- **CA6** `GET /customers?search=` filtra por nombre (case-insensitive) o teléfono.
-- **CA7** `PUT /customers/{id}` edita solo nombre/dirección/teléfono.
-- **CA8** `DELETE` marca `isActive=false` y lo saca del GSI de activos (no se borra físicamente).
-- **CA9** `GET /customers` pagina clientes activos (`limit`, `nextToken`); UI con Anterior/Siguiente.
-- **CA10** `createdAt` al crear; `updatedAt` en cada update y en el soft delete.
+La Lambda resuelve las credenciales desde **Secrets Manager** (secreto `clientes/sqlserver`), con caída a variables de entorno para ejecución local:
+
+| Variable        | Ejemplo            | Uso                          |
+|-----------------|--------------------|------------------------------|
+| `DB_SECRET_ARN` | arn del secreto    | fuente principal de la config |
+| `DB_SERVER`     | `DESKTOP-0T7DSHL`  | host de SQL Server            |
+| `DB_INSTANCE`   | `SQLEXPRESS`       | instancia con nombre          |
+| `DB_NAME`       | `Kiro`             | base de datos                 |
+| `DB_USER`       | `kiro`             | usuario                       |
+| `DB_ENCRYPT`    | `false`            | sin TLS (SQL Express local)   |
+| `DB_TRUST_CERT` | `true`             | confiar en el certificado     |
+
+> **Red (importante):** para que una Lambda en AWS alcance un SQL Server que está físicamente on-premise, la Lambda debe desplegarse dentro de una VPC con conectividad hacia la red corporativa (VPN Site-to-Site o Direct Connect). El `ApiStack` deja lista la config y el secreto; el túnel VPC/VPN se ajusta según el entorno de despliegue real.
 
 ## Requisitos previos
 
 - Node.js 20+
-- AWS CLI configurado (`aws configure`) con credenciales válidas
-- Docker **no** es necesario: el bundling de la Lambda usa `esbuild` local vía `aws-lambda-nodejs`
+- SQL Server accesible (en desarrollo: `DESKTOP-0T7DSHL\SQLEXPRESS`, base `Kiro`)
+- AWS CLI configurado (`aws configure`) para desplegar la parte de nube
 
-## Instalación
+## Base de datos
 
 ```bash
-cd nube
-npm install
+sqlcmd -S "DESKTOP-0T7DSHL\SQLEXPRESS" -U kiro -P <password> -d Kiro -C -i database/01_Clientes.sql
 ```
 
 ## Validación (sin desplegar)
 
 ```bash
-# TypeScript backend + frontend
-npm run typecheck
-
-# Build del frontend (genera packages/frontend/dist)
-npm run build:frontend
-
-# Sintetizar la infraestructura (valida que el stack compila)
-npm run synth
+cd nube
+npm install
+npm run typecheck        # backend + frontend
+npm run build:frontend   # genera packages/frontend/dist
+npm run synth            # sintetiza la infraestructura (valida que compila)
 ```
 
-## Despliegue
+## Despliegue de la nube
 
 1. **Bootstrap** (solo la primera vez por cuenta/región):
-
    ```bash
-   cd packages/infrastructure
-   npx cdk bootstrap
+   cd packages/infrastructure && npx cdk bootstrap
    ```
-
-2. **Desplegar backend + datos + API**:
-
+2. **Desplegar API** y actualizar el secreto con la contraseña real:
    ```bash
    npm run deploy
+   aws secretsmanager put-secret-value --secret-id clientes/sqlserver \
+     --secret-string '{"server":"...","instance":"SQLEXPRESS","database":"Kiro","user":"kiro","password":"<real>"}'
    ```
-
-   Anota el output `ClientesApiStack.ApiUrl`.
-
-3. **Construir el frontend apuntando a la API**:
-
+3. **Frontend** apuntando a la API:
    ```bash
    cd ../frontend
-   # Crea .env con la URL real de la API
    echo "VITE_API_URL=https://<api-id>.execute-api.<region>.amazonaws.com/prod" > .env
    npm run build
+   cd ../infrastructure && npx cdk deploy ClientesFrontendStack
    ```
 
-4. **Desplegar el frontend** (CloudFront + S3). Vuelve a sintetizar/desplegar: el `FrontendStack` sube `packages/frontend/dist` automáticamente si existe.
+## Mapa de criterios de aceptación
 
-   ```bash
-   cd ../infrastructure
-   npx cdk deploy ClientesFrontendStack
-   ```
-
-   El output `ClientesFrontendStack.DistributionDomain` es la URL pública del frontend.
-
-## Desarrollo local del frontend
-
-```bash
-cd packages/frontend
-cp .env.example .env   # ajusta VITE_API_URL a tu API desplegada
-npm run dev            # http://localhost:5173
+- **CA1** `POST /customers` crea con `name`, `address`, `phone`; `usp_Clientes_Crear`.
+- **CA2** `Id` = INT IDENTITY generado por SQL Server; nunca editable.
+- **CA3** `name` obligatorio, máx. 100 (validación backend + frontend).
+- **CA4** `address` opcional, máx. 200.
+- **CA5** `phone` opcional, solo dígitos (regex en backend/frontend + CHECK constraint en BD), máx. 20.
+- **CA6** `GET /customers?search=` filtra por nombre o teléfono (`LIKE`).
+- **CA7** `PUT /customers/{id}` edita solo nombre/dirección/teléfono.
+- **CA8** `DELETE` marca `Activo=0` (soft delete, no borra físicamente).
+- **CA9** `GET /customers` pagina activos (`page`, `pageSize`); UI con Anterior/Siguiente y total.
+- **CA10** `FechaCreacion` al crear; `FechaModificacion` en cada update y soft delete.
 ```
-
-## Limpieza
-
-```bash
-cd packages/infrastructure
-npm run destroy
-```
-
-## Notas de arquitectura (Well-Architected)
-
-- **Seguridad**: IAM de mínimo privilegio (`grantReadWriteData` solo sobre la tabla); S3 privado con Origin Access Control; CORS acotado.
-- **Observabilidad**: X-Ray activo en Lambda y API Gateway; logs en CloudWatch con retención de 7 días.
-- **Fiabilidad**: DynamoDB con Point-in-Time Recovery.
-- En desarrollo se usa `RemovalPolicy.DESTROY`; para producción cambiar a `RETAIN`.

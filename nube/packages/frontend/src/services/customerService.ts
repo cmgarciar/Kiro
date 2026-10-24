@@ -26,16 +26,16 @@ const request = async <T>(url: string, init?: RequestInit): Promise<T> => {
 };
 
 export interface ListParams {
-  limit?: number;
-  nextToken?: string | null;
+  page?: number;
+  pageSize?: number;
   search?: string;
 }
 
 export const customerService = {
   list: async (params: ListParams = {}): Promise<PaginatedResult<CustomerResponse>> => {
     const qs = new URLSearchParams();
-    if (params.limit) qs.set('limit', String(params.limit));
-    if (params.nextToken) qs.set('nextToken', params.nextToken);
+    if (params.page) qs.set('page', String(params.page));
+    if (params.pageSize) qs.set('pageSize', String(params.pageSize));
     if (params.search && params.search.trim().length > 0) qs.set('search', params.search.trim());
     const query = qs.toString();
     return request<PaginatedResult<CustomerResponse>>(
@@ -50,13 +50,13 @@ export const customerService = {
       body: JSON.stringify(data),
     }),
 
-  update: async (id: string, data: UpdateCustomerRequest): Promise<CustomerResponse> =>
+  update: async (id: number, data: UpdateCustomerRequest): Promise<CustomerResponse> =>
     request<CustomerResponse>(`${API_BASE_URL}/customers/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     }),
 
-  remove: async (id: string): Promise<void> =>
+  remove: async (id: number): Promise<void> =>
     request<void>(`${API_BASE_URL}/customers/${id}`, { method: 'DELETE' }),
 };

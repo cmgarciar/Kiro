@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from 'uuid';
 import { CustomerRepository } from './repository.js';
 import { NotFoundException } from '../../shared/errors/index.js';
 import { validateCreate, validateUpdate } from '../../shared/utils/validation.js';
@@ -13,11 +12,19 @@ import type {
 const toResponse = (c: Customer): CustomerResponse => ({
   id: c.id,
   name: c.name,
-  address: c.address ?? null,
-  phone: c.phone ?? null,
+  address: c.address,
+  phone: c.phone,
   isActive: c.isActive,
   createdAt: c.createdAt,
-  updatedAt: c.updatedAt ?? null,
+  updatedAt: c.updatedAt,
+});
+
+const mapPage = (result: PaginatedResult<Customer>): PaginatedResult<CustomerResponse> => ({
+  items: result.items.map(toResponse),
+  page: result.page,
+  pageSize: result.pageSize,
+  total: result.total,
+  totalPages: result.totalPages,
 });
 
 export class CustomerService {
@@ -27,75 +34,60 @@ export class CustomerService {
     this.repo = repo;
   }
 
-  /** CA1, CA2, CA10: create with auto-generated id and creation timestamp. */
+  /** CA1, CA2, CA10: create con Id autogenerado en SQL Server. */
   async create(body: CreateCustomerRequest): Promise<CustomerResponse> {
     const validated = validateCreate(body);
-    const now = new Date().toISOString();
-    const customer: Customer = {
-      id: uuidv4(),
+    const created = await this.repo.create({
       name: validated.name,
-      address: validated.address ?? undefined,
-      phone: validated.phone ?? undefined,
-      isActive: true,
-      createdAt: now,
-      updatedAt: undefined,
-    };
-    const created = await this.repo.create(customer);
+      address: validated.address,
+      phone: validated.phone,
+    });
     return toResponse(created);
   }
 
-  /** CA9: list active customers, paginated. */
-  async list(limit: number, token?: string): Promise<PaginatedResult<CustomerResponse>> {
-    const result = await this.repo.listActive(limit, token);
-    return { items: result.items.map(toResponse), nextToken: result.nextToken };
-  }
-
-  /** CA6: search active customers by name or phone. */
-  async search(
-    query: string,
-    limit: number,
-    token?: string,
+  /** CA6, CA9: listar activos paginados; con search filtra por nombre o telefono. */
+  async list(
+    search: string | null,
+    page: number,
+    pageSize: number,
   ): Promise<PaginatedResult<CustomerResponse>> {
-    const trimmed = query.trim();
-    if (trimmed.length === 0) {
-      return this.list(limit, token);
-    }
-    const result = await this.repo.search(trimmed, limit, token);
-    return { items: result.items.map(toResponse), nextToken: result.nextToken };
+    const trimmed = search && search.trim().length > 0 ? search.trim() : null;
+    const result = await this.repo.list(trimmed, page, pageSize);
+    return mapPage(result);
   }
 
-  async getById(id: string): Promise<CustomerResponse> {
+  async getById(id: number): Promise<CustomerResponse> {
     const customer = await this.repo.getById(id);
-    if (!customer || !customer.isActive) {
-      throw new NotFoundException('Customer', id);
+    if (!customer) {
+      throw new NotFoundException('Cliente', id);
     }
     return toResponse(customer);
   }
 
-  /** CA7, CA10: update editable fields and set modification timestamp. */
-  async update(id: string, body: UpdateCustomerRequest): Promise<CustomerResponse> {
+  /** CA7, CA10: actualiza nombre/direccion/telefono. */
+  async update(id: number, body: UpdateCustomerRequest): Promise<CustomerResponse> {
     const existing = await this.repo.getById(id);
-    if (!existing || !existing.isActive) {
-      throw new NotFoundException('Customer', id);
+    if (!existing) {
+      throw new NotFoundException('Cliente', id);
     }
     const validated = validateUpdate(body);
-    const updated: Customer = {
-      ...existing,
+    const updated = await this.repo.update({
+      id,
       name: validated.name ?? existing.name,
-      address: validated.address !== undefined ? (validated.address ?? undefined) : existing.address,
-      phone: validated.phone !== undefined ? (validated.phone ?? undefined) : existing.phone,
-      updatedAt: new Date().toISOString(),
-    };
-    const result = await this.repo.update(updated);
-    return toResponse(result);
+      address: validated.address !== undefined ? validated.address : existing.address,
+      phone: validated.phone !== undefined ? validated.phone : existing.phone,
+    });
+    if (!updated) {
+      throw new NotFoundException('Cliente', id);
+    }
+    return toResponse(updated);
   }
 
   /** CA8, CA10: soft delete. */
-  async softDelete(id: string): Promise<void> {
-    const existing = await this.repo.getById(id);
-    if (!existing || !existing.isActive) {
-      throw new NotFoundException('Customer', id);
+  async softDelete(id: number): Promise<void> {
+    const deleted = await this.repo.softDelete(id);
+    if (!deleted) {
+      throw new NotFoundException('Cliente', id);
     }
-    await this.repo.softDelete(id, new Date().toISOString());
   }
 }

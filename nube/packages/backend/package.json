@@ -8,14 +8,13 @@
     "build": "tsc"
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.651.0",
-    "@aws-sdk/lib-dynamodb": "^3.651.0",
-    "uuid": "^9.0.1"
+    "@aws-sdk/client-secrets-manager": "^3.651.0",
+    "mssql": "^11.0.1"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.145",
+    "@types/mssql": "^9.1.5",
     "@types/node": "^20.14.0",
-    "@types/uuid": "^9.0.8",
     "typescript": "^5.5.4"
   }
 }

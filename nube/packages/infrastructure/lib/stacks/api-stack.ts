@@ -3,22 +3,41 @@ import * as cdk from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as nodejsLambda from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
-import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
 
-export interface ApiStackProps extends cdk.StackProps {
-  table: dynamodb.Table;
-}
-
 /**
- * API Gateway REST + single Lambda handling the Customers CRUD (HU1).
+ * API Gateway REST + Lambda para el CRUD de Clientes (HU1).
+ *
+ * Arquitectura hibrida: el computo corre en AWS (Lambda) pero la base de
+ * datos es SQL Server on-premise. Las credenciales de conexion se guardan
+ * en Secrets Manager (nunca hardcodeadas) y se inyectan en la Lambda.
+ *
+ * Nota de red: para que la Lambda alcance un SQL Server on-premise real,
+ * la Lambda debe desplegarse en una VPC con conectividad hacia la red
+ * corporativa (VPN Site-to-Site o Direct Connect). Aqui se deja el secreto
+ * y las variables de entorno; el VPC/túnel se configura segun el entorno.
  */
 export class ApiStack extends cdk.Stack {
   public readonly apiUrl: string;
 
-  constructor(scope: Construct, id: string, props: ApiStackProps) {
+  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
+
+    // Secreto con las credenciales de SQL Server on-premise.
+    // Rellenar el valor real tras el deploy (o via CLI) sin exponerlo en el codigo.
+    const dbSecret = new secretsmanager.Secret(this, 'SqlServerSecret', {
+      secretName: 'clientes/sqlserver',
+      description: 'Credenciales de SQL Server on-premise para el modulo Clientes',
+      secretObjectValue: {
+        server: cdk.SecretValue.unsafePlainText('DESKTOP-0T7DSHL'),
+        instance: cdk.SecretValue.unsafePlainText('SQLEXPRESS'),
+        database: cdk.SecretValue.unsafePlainText('Kiro'),
+        user: cdk.SecretValue.unsafePlainText('kiro'),
+        password: cdk.SecretValue.unsafePlainText('CHANGE_ME'),
+      },
+    });
 
     const logGroup = new logs.LogGroup(this, 'CustomersFunctionLogs', {
       logGroupName: '/aws/lambda/ClientesHandler',
@@ -37,7 +56,14 @@ export class ApiStack extends cdk.Stack {
       tracing: lambda.Tracing.ACTIVE,
       logGroup,
       environment: {
-        TABLE_NAME: props.table.tableName,
+        // Config de conexion a SQL Server on-premise.
+        DB_SECRET_ARN: dbSecret.secretArn,
+        DB_SERVER: 'DESKTOP-0T7DSHL',
+        DB_INSTANCE: 'SQLEXPRESS',
+        DB_NAME: 'Kiro',
+        DB_USER: 'kiro',
+        DB_ENCRYPT: 'false',
+        DB_TRUST_CERT: 'true',
         NODE_OPTIONS: '--enable-source-maps',
       },
       bundling: {
@@ -45,15 +71,17 @@ export class ApiStack extends cdk.Stack {
         sourceMap: true,
         target: 'node22',
         format: nodejsLambda.OutputFormat.ESM,
+        // mssql usa modulos nativos/dinamicos; se externalizan para el bundle ESM.
+        externalModules: [],
       },
     });
 
-    // Least-privilege: grant only read/write on the table (and its indexes).
-    props.table.grantReadWriteData(customersFn);
+    // Least-privilege: la Lambda solo puede leer el secreto de la BD.
+    dbSecret.grantRead(customersFn);
 
     const api = new apigateway.RestApi(this, 'ClientesApi', {
       restApiName: 'ClientesApi',
-      description: 'API REST para el modulo de Clientes (HU1)',
+      description: 'API REST para el modulo de Clientes (HU1) - BD SQL Server on-premise',
       deployOptions: {
         stageName: 'prod',
         tracingEnabled: true,
@@ -82,5 +110,6 @@ export class ApiStack extends cdk.Stack {
     this.apiUrl = api.url;
 
     new cdk.CfnOutput(this, 'ApiUrl', { value: api.url });
+    new cdk.CfnOutput(this, 'DbSecretName', { value: dbSecret.secretName });
   }
 }

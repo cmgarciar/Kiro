@@ -15,8 +15,9 @@ export function CustomersPage() {
     search,
     isLoading,
     error,
-    nextToken,
-    pageIndex,
+    page,
+    totalPages,
+    total,
     setSearch,
     fetchFirstPage,
     nextPage,
@@ -148,11 +149,17 @@ export function CustomersPage() {
         </table>
 
         <div className="pagination">
-          <button className="btn" onClick={() => void prevPage()} disabled={pageIndex === 0 || isLoading}>
+          <button className="btn" onClick={() => void prevPage()} disabled={page <= 1 || isLoading}>
             Anterior
           </button>
-          <span className="muted">Pagina {pageIndex + 1}</span>
-          <button className="btn" onClick={() => void nextPage()} disabled={!nextToken || isLoading}>
+          <span className="muted">
+            Pagina {page} de {totalPages} ({total} clientes)
+          </span>
+          <button
+            className="btn"
+            onClick={() => void nextPage()}
+            disabled={page >= totalPages || isLoading}
+          >
             Siguiente
           </button>
         </div>

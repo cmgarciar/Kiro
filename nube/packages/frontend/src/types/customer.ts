@@ -1,5 +1,5 @@
 export interface CustomerResponse {
-  id: string;
+  id: number;
   name: string;
   address: string | null;
   phone: string | null;
@@ -20,7 +20,11 @@ export interface UpdateCustomerRequest {
   phone?: string | null;
 }
 
+/** CA9: paginacion por pagina respaldada por SQL Server OFFSET/FETCH. */
 export interface PaginatedResult<T> {
   items: T[];
-  nextToken: string | null;
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
 }
