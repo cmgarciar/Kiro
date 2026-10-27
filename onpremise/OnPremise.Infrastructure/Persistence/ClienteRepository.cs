@@ -32,6 +32,7 @@ public class ClienteRepository : IClienteRepository
             command.Parameters.Add(new SqlParameter("@Nombre", SqlDbType.NVarChar, 100) { Value = cliente.Nombre });
             command.Parameters.Add(new SqlParameter("@Direccion", SqlDbType.NVarChar, 200) { Value = (object?)cliente.Direccion ?? DBNull.Value });
             command.Parameters.Add(new SqlParameter("@Telefono", SqlDbType.NVarChar, 20) { Value = (object?)cliente.Telefono ?? DBNull.Value });
+            command.Parameters.Add(new SqlParameter("@NIT", SqlDbType.NVarChar, 20) { Value = (object?)cliente.NIT ?? DBNull.Value });
             var outId = new SqlParameter("@NewId", SqlDbType.Int) { Direction = ParameterDirection.Output };
             command.Parameters.Add(outId);
 
@@ -124,6 +125,7 @@ public class ClienteRepository : IClienteRepository
             command.Parameters.Add(new SqlParameter("@Nombre", SqlDbType.NVarChar, 100) { Value = cliente.Nombre });
             command.Parameters.Add(new SqlParameter("@Direccion", SqlDbType.NVarChar, 200) { Value = (object?)cliente.Direccion ?? DBNull.Value });
             command.Parameters.Add(new SqlParameter("@Telefono", SqlDbType.NVarChar, 20) { Value = (object?)cliente.Telefono ?? DBNull.Value });
+            command.Parameters.Add(new SqlParameter("@NIT", SqlDbType.NVarChar, 20) { Value = (object?)cliente.NIT ?? DBNull.Value });
             var outRows = new SqlParameter("@Rows", SqlDbType.Int) { Direction = ParameterDirection.Output };
             command.Parameters.Add(outRows);
 
@@ -169,6 +171,7 @@ public class ClienteRepository : IClienteRepository
         Nombre = reader.GetString(reader.GetOrdinal("Nombre")),
         Direccion = reader.IsDBNull(reader.GetOrdinal("Direccion")) ? null : reader.GetString(reader.GetOrdinal("Direccion")),
         Telefono = reader.IsDBNull(reader.GetOrdinal("Telefono")) ? null : reader.GetString(reader.GetOrdinal("Telefono")),
+        NIT = reader.IsDBNull(reader.GetOrdinal("NIT")) ? null : reader.GetString(reader.GetOrdinal("NIT")),
         Activo = reader.GetBoolean(reader.GetOrdinal("Activo")),
         FechaCreacion = reader.GetDateTime(reader.GetOrdinal("FechaCreacion")),
         FechaModificacion = reader.IsDBNull(reader.GetOrdinal("FechaModificacion")) ? null : reader.GetDateTime(reader.GetOrdinal("FechaModificacion"))

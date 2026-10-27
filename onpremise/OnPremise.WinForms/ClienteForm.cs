@@ -30,6 +30,7 @@ public class ClienteForm : Form
     private TextBox _txtNombre = null!;
     private TextBox _txtDireccion = null!;
     private TextBox _txtTelefono = null!;
+    private TextBox _txtNIT = null!;
 
     // Toolbar
     private Button _btnNuevo = null!;
@@ -212,7 +213,7 @@ public class ClienteForm : Form
         var content = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 6, BackColor = CFormBg };
         content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
         content.RowStyles.Add(new RowStyle(SizeType.Absolute, 38f));   // título datos
-        content.RowStyles.Add(new RowStyle(SizeType.Absolute, 210f));  // campos
+        content.RowStyles.Add(new RowStyle(SizeType.Absolute, 260f));  // campos
         content.RowStyles.Add(new RowStyle(SizeType.Absolute, 38f));   // título listado
         content.RowStyles.Add(new RowStyle(SizeType.Absolute, 48f));   // búsqueda
         content.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));   // grid
@@ -244,9 +245,9 @@ public class ClienteForm : Form
     {
         var container = new Panel { Dock = DockStyle.Fill, BackColor = CWhite, Padding = new Padding(16, 10, 16, 10) };
 
-        var fields = new TableLayoutPanel { Dock = DockStyle.Top, ColumnCount = 1, RowCount = 8, BackColor = CWhite, Width = 520 };
+        var fields = new TableLayoutPanel { Dock = DockStyle.Top, ColumnCount = 1, RowCount = 10, BackColor = CWhite, Width = 520 };
         fields.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 500f));
-        for (int i = 0; i < 8; i++)
+        for (int i = 0; i < 10; i++)
             fields.RowStyles.Add(new RowStyle(SizeType.Absolute, i % 2 == 0 ? 18f : 30f));
 
         _txtId = MakeTextBox(); _txtId.ReadOnly = true; _txtId.BackColor = CFormBg;
@@ -258,6 +259,7 @@ public class ClienteForm : Form
             if (!char.IsControl(e.KeyChar) && !char.IsDigit(e.KeyChar))
                 e.Handled = true; // CA5: solo dígitos
         };
+        _txtNIT = MakeTextBox(); _txtNIT.MaxLength = 20;
 
         fields.Controls.Add(MakeLabel("Id"), 0, 0);
         fields.Controls.Add(_txtId, 0, 1);
@@ -267,6 +269,8 @@ public class ClienteForm : Form
         fields.Controls.Add(_txtDireccion, 0, 5);
         fields.Controls.Add(MakeLabel("Teléfono"), 0, 6);
         fields.Controls.Add(_txtTelefono, 0, 7);
+        fields.Controls.Add(MakeLabel("NIT"), 0, 8);
+        fields.Controls.Add(_txtNIT, 0, 9);
 
         foreach (Control c in fields.Controls) c.Dock = DockStyle.Fill;
 
@@ -284,8 +288,8 @@ public class ClienteForm : Form
             Width = 320,
             Font = new Font("Segoe UI", 10f)
         };
-        _txtSearch.AccessibleName = "Buscar por nombre o teléfono";
-        _txtSearch.PlaceholderText = "Buscar por nombre o teléfono...";
+        _txtSearch.AccessibleName = "Buscar por nombre, teléfono o NIT";
+        _txtSearch.PlaceholderText = "Buscar por nombre, teléfono o NIT...";
         _txtSearch.KeyDown += async (s, e) =>
         {
             if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; _pageNumber = 1; await LoadDataAsync(); }
@@ -331,7 +335,8 @@ public class ClienteForm : Form
         _dgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "Id", DataPropertyName = "Id", HeaderText = "ID", FillWeight = 10 });
         _dgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "Nombre", DataPropertyName = "Nombre", HeaderText = "NOMBRE", FillWeight = 35 });
         _dgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "Direccion", DataPropertyName = "Direccion", HeaderText = "DIRECCIÓN", FillWeight = 35 });
-        _dgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "Telefono", DataPropertyName = "Telefono", HeaderText = "TELÉFONO", FillWeight = 20 });
+        _dgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "Telefono", DataPropertyName = "Telefono", HeaderText = "TELÉFONO", FillWeight = 18 });
+        _dgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "NIT", DataPropertyName = "NIT", HeaderText = "NIT", FillWeight = 15 });
         _dgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "FechaCreacion", DataPropertyName = "FechaCreacion", HeaderText = "CREADO", FillWeight = 20 });
 
         _dgv.CellFormatting += (s, e) =>
@@ -424,9 +429,11 @@ public class ClienteForm : Form
         _txtNombre.ReadOnly = !editable;
         _txtDireccion.ReadOnly = !editable;
         _txtTelefono.ReadOnly = !editable;
+        _txtNIT.ReadOnly = !editable;
         _txtNombre.BackColor = editable ? Color.White : CFormBg;
         _txtDireccion.BackColor = editable ? Color.White : CFormBg;
         _txtTelefono.BackColor = editable ? Color.White : CFormBg;
+        _txtNIT.BackColor = editable ? Color.White : CFormBg;
 
         _btnGrabar.Enabled = editable;
         _btnCancelar.Visible = editable;
@@ -446,6 +453,7 @@ public class ClienteForm : Form
             _txtNombre.Clear();
             _txtDireccion.Clear();
             _txtTelefono.Clear();
+            _txtNIT.Clear();
             _lblEstado.Visible = false;
             _txtNombre.Focus();
         }
@@ -472,6 +480,7 @@ public class ClienteForm : Form
             _txtNombre.Text = dto.Nombre;
             _txtDireccion.Text = dto.Direccion ?? string.Empty;
             _txtTelefono.Text = dto.Telefono ?? string.Empty;
+            _txtNIT.Text = dto.NIT ?? string.Empty;
             _lblEstado.Visible = true;
             _lblEstado.Text = dto.Activo ? "● ACTIVO" : "● INACTIVO";
             _lblEstado.ForeColor = dto.Activo ? Color.ForestGreen : CDanger;
@@ -485,6 +494,7 @@ public class ClienteForm : Form
         var nombre = _txtNombre.Text.Trim();
         var direccion = _txtDireccion.Text.Trim();
         var telefono = _txtTelefono.Text.Trim();
+        var nit = _txtNIT.Text.Trim();
 
         if (string.IsNullOrWhiteSpace(nombre))
         {
@@ -507,7 +517,8 @@ public class ClienteForm : Form
                 {
                     Nombre = nombre,
                     Direccion = string.IsNullOrEmpty(direccion) ? null : direccion,
-                    Telefono = string.IsNullOrEmpty(telefono) ? null : telefono
+                    Telefono = string.IsNullOrEmpty(telefono) ? null : telefono,
+                    NIT = string.IsNullOrEmpty(nit) ? null : nit
                 });
                 MessageBox.Show("Cliente creado correctamente.", "Éxito", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
@@ -517,7 +528,8 @@ public class ClienteForm : Form
                 {
                     Nombre = nombre,
                     Direccion = string.IsNullOrEmpty(direccion) ? null : direccion,
-                    Telefono = string.IsNullOrEmpty(telefono) ? null : telefono
+                    Telefono = string.IsNullOrEmpty(telefono) ? null : telefono,
+                    NIT = string.IsNullOrEmpty(nit) ? null : nit
                 });
                 MessageBox.Show("Cliente actualizado correctamente.", "Éxito", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }

@@ -14,6 +14,7 @@ public class ClienteService : IClienteService
     private const int MAX_NOMBRE = 100;
     private const int MAX_DIRECCION = 200;
     private const int MAX_TELEFONO = 20;
+    private const int MAX_NIT = 20;
 
     private readonly IClienteRepository _repository;
 
@@ -27,16 +28,19 @@ public class ClienteService : IClienteService
         var nombre = (request.Nombre ?? string.Empty).Trim();
         var direccion = NormalizeOptional(request.Direccion);
         var telefono = NormalizeOptional(request.Telefono);
+        var nit = NormalizeOptional(request.NIT);
 
         ValidateNombre(nombre);
         ValidateDireccion(direccion);
         ValidateTelefono(telefono);
+        ValidateNit(nit);
 
         var entity = new Cliente
         {
             Nombre = nombre,
             Direccion = direccion,
-            Telefono = telefono
+            Telefono = telefono,
+            NIT = nit
         };
 
         var newId = await _repository.CreateAsync(entity);
@@ -75,17 +79,20 @@ public class ClienteService : IClienteService
         var nombre = (request.Nombre ?? string.Empty).Trim();
         var direccion = NormalizeOptional(request.Direccion);
         var telefono = NormalizeOptional(request.Telefono);
+        var nit = NormalizeOptional(request.NIT);
 
         ValidateNombre(nombre);
         ValidateDireccion(direccion);
         ValidateTelefono(telefono);
+        ValidateNit(nit);
 
         var entity = new Cliente
         {
             Id = id,
             Nombre = nombre,
             Direccion = direccion,
-            Telefono = telefono
+            Telefono = telefono,
+            NIT = nit
         };
 
         var updated = await _repository.UpdateAsync(entity);
@@ -129,6 +136,12 @@ public class ClienteService : IClienteService
             throw new ValidationException("El teléfono solo puede contener dígitos.");
     }
 
+    private static void ValidateNit(string? nit)
+    {
+        if (nit is not null && nit.Length > MAX_NIT)
+            throw new ValidationException($"El NIT no puede superar {MAX_NIT} caracteres.");
+    }
+
     private static string? NormalizeOptional(string? value)
     {
         if (string.IsNullOrWhiteSpace(value)) return null;
@@ -141,6 +154,7 @@ public class ClienteService : IClienteService
         Nombre = c.Nombre,
         Direccion = c.Direccion,
         Telefono = c.Telefono,
+        NIT = c.NIT,
         Activo = c.Activo,
         FechaCreacion = c.FechaCreacion,
         FechaModificacion = c.FechaModificacion

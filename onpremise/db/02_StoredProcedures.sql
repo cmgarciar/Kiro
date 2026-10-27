@@ -7,6 +7,7 @@ CREATE OR ALTER PROCEDURE sp_ClienteCreate
     @Nombre    NVARCHAR(100),
     @Direccion NVARCHAR(200) = NULL,
     @Telefono  NVARCHAR(20)  = NULL,
+    @NIT       NVARCHAR(20)  = NULL,
     @NewId     INT OUTPUT
 AS
 BEGIN
@@ -14,8 +15,8 @@ BEGIN
     BEGIN TRY
         BEGIN TRANSACTION;
 
-        INSERT INTO dbo.Clientes (Nombre, Direccion, Telefono, Activo, FechaCreacion)
-        VALUES (@Nombre, @Direccion, @Telefono, 1, GETDATE());
+        INSERT INTO dbo.Clientes (Nombre, Direccion, Telefono, NIT, Activo, FechaCreacion)
+        VALUES (@Nombre, @Direccion, @Telefono, @NIT, 1, GETDATE());
 
         SET @NewId = SCOPE_IDENTITY();
 
@@ -46,14 +47,16 @@ BEGIN
         WHERE Activo = 1
           AND (@Search IS NULL
                OR Nombre LIKE '%' + @Search + '%'
-               OR Telefono LIKE '%' + @Search + '%');
+               OR Telefono LIKE '%' + @Search + '%'
+               OR NIT LIKE '%' + @Search + '%');
 
-        SELECT Id, Nombre, Direccion, Telefono, Activo, FechaCreacion, FechaModificacion
+        SELECT Id, Nombre, Direccion, Telefono, NIT, Activo, FechaCreacion, FechaModificacion
         FROM dbo.Clientes
         WHERE Activo = 1
           AND (@Search IS NULL
                OR Nombre LIKE '%' + @Search + '%'
-               OR Telefono LIKE '%' + @Search + '%')
+               OR Telefono LIKE '%' + @Search + '%'
+               OR NIT LIKE '%' + @Search + '%')
         ORDER BY Id DESC
         OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;
     END TRY
@@ -72,7 +75,7 @@ AS
 BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
-        SELECT Id, Nombre, Direccion, Telefono, Activo, FechaCreacion, FechaModificacion
+        SELECT Id, Nombre, Direccion, Telefono, NIT, Activo, FechaCreacion, FechaModificacion
         FROM dbo.Clientes
         WHERE Id = @Id AND Activo = 1;
     END TRY
@@ -90,6 +93,7 @@ CREATE OR ALTER PROCEDURE sp_ClienteUpdate
     @Nombre    NVARCHAR(100),
     @Direccion NVARCHAR(200) = NULL,
     @Telefono  NVARCHAR(20)  = NULL,
+    @NIT       NVARCHAR(20)  = NULL,
     @Rows      INT OUTPUT
 AS
 BEGIN
@@ -101,6 +105,7 @@ BEGIN
         SET Nombre = @Nombre,
             Direccion = @Direccion,
             Telefono = @Telefono,
+            NIT = @NIT,
             FechaModificacion = GETDATE()
         WHERE Id = @Id AND Activo = 1;
 

@@ -5,4 +5,5 @@ public class UpdateClienteRequest
     public string Nombre { get; set; } = string.Empty;
     public string? Direccion { get; set; }
     public string? Telefono { get; set; }
+    public string? NIT { get; set; }
 }

@@ -6,6 +6,7 @@ public class ClienteDto
     public string Nombre { get; set; } = string.Empty;
     public string? Direccion { get; set; }
     public string? Telefono { get; set; }
+    public string? NIT { get; set; }
     public bool Activo { get; set; }
     public DateTime FechaCreacion { get; set; }
     public DateTime? FechaModificacion { get; set; }
@@ -16,6 +17,7 @@ public class CreateClienteRequest
     public string Nombre { get; set; } = string.Empty;
     public string? Direccion { get; set; }
     public string? Telefono { get; set; }
+    public string? NIT { get; set; }
 }
 
 public class UpdateClienteRequest
@@ -23,6 +25,7 @@ public class UpdateClienteRequest
     public string Nombre { get; set; } = string.Empty;
     public string? Direccion { get; set; }
     public string? Telefono { get; set; }
+    public string? NIT { get; set; }
 }
 
 public class PagedResult<T>
